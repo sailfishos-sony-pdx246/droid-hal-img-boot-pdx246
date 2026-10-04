@@ -1,0 +1,193 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: 2025 Jolla Mobile Ltd
+# SPDX-FileCopyrightText: 2021 Open Mobile Platform LLC.
+# SPDX-FileCopyrightText: 2013-2015 Jolla Ltd.
+# SPDX-FileCopyrightText: Johannes Meyer zum Alten Borgloh
+#
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# This file is part of Jolla recovery console
+
+export PATH=/sbin:/bin:/usr/bin:/usr/sbin
+ANDROID_USB=/sys/class/android_usb/android0
+GADGET_DIR=/config/usb_gadget
+USB_FUNCTIONS=rndis
+LOCAL_IP=10.42.66.66
+
+
+write()
+{
+    echo -n "$2" > $1
+}
+
+# Get options from kernel command line
+get_opt()
+{
+    for param in $(cat /proc/cmdline); do
+        echo "$param" | grep "^$1=*" | cut -d'=' -f2
+    done
+
+    if [ -f /proc/bootconfig ]; then
+        while read param; do
+            echo "$param" | grep "^$1 = *" | cut -d'=' -f2 | cut -d'"' -f2
+        done </proc/bootconfig
+    fi
+}
+
+# This sets up the USB with whatever USB_FUNCTIONS are set to via configfs
+usb_setup_configfs() {
+    G_USB_ISERIAL=$GADGET_DIR/g1/strings/0x409/serialnumber
+    mkdir $GADGET_DIR/g1
+    write $GADGET_DIR/g1/idVendor                   "0x2931"
+    write $GADGET_DIR/g1/idProduct                  "0x0A06"
+    mkdir $GADGET_DIR/g1/strings/0x409
+    write $GADGET_DIR/g1/strings/0x409/serialnumber "$1"
+    write $GADGET_DIR/g1/strings/0x409/manufacturer "Jolla"
+    write $GADGET_DIR/g1/strings/0x409/product      "Recovery"
+
+    if echo $USB_FUNCTIONS | grep -q "rndis"; then
+        mkdir $GADGET_DIR/g1/functions/rndis.rndis0
+        mkdir $GADGET_DIR/g1/functions/rndis_bam.rndis
+    fi
+
+    mkdir $GADGET_DIR/g1/configs/c.1
+    mkdir $GADGET_DIR/g1/configs/c.1/strings/0x409
+    write $GADGET_DIR/g1/configs/c.1/strings/0x409/configuration "$USB_FUNCTIONS"
+
+    if echo $USB_FUNCTIONS | grep -q "rndis"; then
+        ln -s $GADGET_DIR/g1/functions/rndis.rndis0 $GADGET_DIR/g1/configs/c.1
+        ln -s $GADGET_DIR/g1/functions/rndis_bam.rndis $GADGET_DIR/g1/configs/c.1
+    fi
+
+    udc="$(get_opt androidboot.usbcontroller | head -1)"
+    if [ -z "$udc" ]; then
+        for udc_path in /sys/class/udc/* ; do
+            case "$udc_path" in
+                *dummy) true ;;
+                *) udc="${udc_path##*/}" ; break ;;
+            esac
+        done
+    fi
+    # pdx246: on Qualcomm dwc3-msm the UDC named by androidboot.usbcontroller
+    # (a600000.dwc3) is only registered once the glue device (a600000.ssusb)
+    # is switched to peripheral mode, as the device's own recovery does
+    # (init.recovery.qcom.rc). The write below goes through /sys/class/udc,
+    # which does not exist before that, so the gadget would never bind.
+    if [ -n "$udc" ] && [ ! -e /sys/class/udc/"$udc" ]; then
+        glue="$(get_opt androidboot.usb.dwc3_msm | head -1)"
+        [ -z "$glue" ] && glue="${udc%%.*}.ssusb"
+        i=0
+        while [ ! -e /sys/bus/platform/devices/"$glue"/mode ] && [ $i -lt 50 ]; do
+            sleep 0.1
+            i=$((i + 1))
+        done
+        write /sys/bus/platform/devices/"$glue"/mode peripheral
+        i=0
+        while [ ! -e /sys/class/udc/"$udc" ] && [ $i -lt 50 ]; do
+            sleep 0.1
+            i=$((i + 1))
+        done
+        log_kmsg "USB: $glue set to peripheral, UDC $udc $([ -e /sys/class/udc/"$udc" ] && echo present || echo missing)"
+    fi
+    # Force peripheral mode by default
+    write /sys/class/udc/"$udc"/device/../mode peripheral
+    echo "$udc" > $GADGET_DIR/g1/UDC
+}
+
+# This sets up the USB with whatever USB_FUNCTIONS are set to via android_usb
+usb_setup_android_usb() {
+    G_USB_ISERIAL=$ANDROID_USB/iSerial
+    write $ANDROID_USB/enable          0
+    write $ANDROID_USB/functions       ""
+    write $ANDROID_USB/enable          1
+    usleep 500000 # 0.5 delay to attempt to remove rndis function
+    write $ANDROID_USB/enable          0
+    write $ANDROID_USB/idVendor        2931
+    write $ANDROID_USB/idProduct       0A06
+    write $ANDROID_USB/iManufacturer   "Jolla"
+    write $ANDROID_USB/iProduct        "Recovery"
+    write $ANDROID_USB/iSerial         "$1"
+    write $ANDROID_USB/functions       $USB_FUNCTIONS
+    write $ANDROID_USB/enable          1
+}
+
+# This determines which USB setup method is going to be used
+usb_setup() {
+    if [ -f $ANDROID_USB/enable ]; then
+        usb_setup_android_usb $1
+    else
+        usb_setup_configfs $1
+    fi
+}
+
+usb_info() {
+    # make sure USB is settled
+    echo "########################## usb_info: $1"
+    sleep 1
+    write $G_USB_ISERIAL "$1"
+}
+
+set -o allexport
+. /usr/bin/recovery-functions.sh
+set +o allexport
+
+log_kmsg "Mounting all..."
+mkdir /dev/pts
+mount -a
+
+mkdir /config
+mount -t configfs none /config
+
+#Run mdev
+log_kmsg "Running mdev..."
+mdev -s
+
+#Set mdev as hotplug manager
+echo /bin/mdev > /proc/sys/kernel/hotplug
+
+# Minimize power consumption by lowering display brightness to minimum
+# Write requested value - 1 so yamui can force updating brightness
+# after acquiring display
+write $DISPLAY_BRIGHTNESS_PATH $((DISPLAY_BRIGHTNESS-1))
+
+
+usb_setup "Jolla Debug setting up"
+
+ip link set rndis0 up
+ip link set usb0 up
+if ipaddr add 10.42.66.66/29 broadcast 10.42.66.255 dev rndis0 ; then
+    USB_IFACE=rndis0
+elif ipaddr add 10.42.66.66/29 broadcast 10.42.66.255 dev usb0 ; then
+    USB_IFACE=usb0
+else
+    usb_info "Jolla Debug: ERROR: could not setup USB as usb0 or rndis0"
+    dmesg
+    sleep 60 # plenty long enough to check usb on host
+    reboot -f
+fi
+ipaddr add 192.168.2.15/24 broadcast 192.168.2.255 dev $USB_IFACE label rndis0:0
+
+sed -i "s/@IFACE@/$USB_IFACE/g" /etc/udhcpd.conf
+udhcpd
+
+usb_info "Jolla Debug telnet on $USB_IFACE $LOCAL_IP - also running udhcpd"
+
+MSG="RECOVERY: Connect USB cable and
+open telnet to address $LOCAL_IP
+
+Or press power key for 3 seconds to
+reboot"
+yamui $YAMUI_OFFSET -t "$MSG" &
+
+# Remove recovery-menu lock if the /var/run is not on tmpfs.
+remove_lock
+
+start_powerkey_handler
+
+log_kmsg "Starting telnetd..."
+telnetd -l/usr/bin/recovery-menu &
+
+log_kmsg "Starting yamui-screensaverd..."
+/usr/bin/yamui-screensaverd &
+
+sleep 86400

@@ -1,0 +1,3 @@
+[submodule "initrd"]
+	path = initrd
+	url = https://github.com/mer-hybris/hybris-initrd.git

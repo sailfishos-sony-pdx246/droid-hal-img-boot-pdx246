@@ -1,0 +1,68 @@
+From: Johannes Meyer zum Alten Borgloh <code@jzab.de>
+Subject: [PATCH] [recovery-init] Switch dwc3-msm glue to peripheral when the
+ UDC is missing
+
+On some Qualcomm dwc3-msm devices the UDC named by
+androidboot.usbcontroller (on Sony pdx246: a600000.dwc3) is only
+registered after the glue device a600000.ssusb is switched to peripheral
+mode. usb_setup_configfs() writes the mode through
+/sys/class/udc/<udc>/device/.., which does not exist yet, so the gadget
+never binds and there is no telnet in the recovery/debug initrd.
+
+If the UDC is missing, wait up to 5 s for the glue's mode attribute
+(androidboot.usb.dwc3_msm, or <address>.ssusb derived from the UDC
+name), write "peripheral" to it and wait up to 5 s for the UDC. pdx246's
+own recovery does the same (init.recovery.qcom.rc). Devices whose UDC
+already exists are unaffected. Same change as hybris-boot 24dc2d0 (branch
+hybris-23.2), plus the wait for the mode attribute.
+
+Applies to mer-hybris/hybris-initrd 7b972b6 (recovery-init is identical
+at ecb295c). droid-hal-img-boot-pdx246 ships the result as the override
+initrd-pdx246/recovery-init; tools/check-initrd-overrides.sh checks that
+the two agree.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ recovery-init | 22 ++++++++++++++++++++++
+ 1 file changed, 22 insertions(+)
+
+diff --git a/recovery-init b/recovery-init
+index c7d9a9f..88c9ba1 100755
+--- a/recovery-init
++++ b/recovery-init
+@@ -2,6 +2,7 @@
+ # SPDX-FileCopyrightText: 2025 Jolla Mobile Ltd
+ # SPDX-FileCopyrightText: 2021 Open Mobile Platform LLC.
+ # SPDX-FileCopyrightText: 2013-2015 Jolla Ltd.
++# SPDX-FileCopyrightText: Johannes Meyer zum Alten Borgloh
+ #
+ # SPDX-License-Identifier: GPL-2.0-only
+ #
+@@ -67,6 +68,27 @@ usb_setup_configfs() {
+             esac
+         done
+     fi
++    # pdx246: on Qualcomm dwc3-msm the UDC named by androidboot.usbcontroller
++    # (a600000.dwc3) is only registered once the glue device (a600000.ssusb)
++    # is switched to peripheral mode, as the device's own recovery does
++    # (init.recovery.qcom.rc). The write below goes through /sys/class/udc,
++    # which does not exist before that, so the gadget would never bind.
++    if [ -n "$udc" ] && [ ! -e /sys/class/udc/"$udc" ]; then
++        glue="$(get_opt androidboot.usb.dwc3_msm | head -1)"
++        [ -z "$glue" ] && glue="${udc%%.*}.ssusb"
++        i=0
++        while [ ! -e /sys/bus/platform/devices/"$glue"/mode ] && [ $i -lt 50 ]; do
++            sleep 0.1
++            i=$((i + 1))
++        done
++        write /sys/bus/platform/devices/"$glue"/mode peripheral
++        i=0
++        while [ ! -e /sys/class/udc/"$udc" ] && [ $i -lt 50 ]; do
++            sleep 0.1
++            i=$((i + 1))
++        done
++        log_kmsg "USB: $glue set to peripheral, UDC $udc $([ -e /sys/class/udc/"$udc" ] && echo present || echo missing)"
++    fi
+     # Force peripheral mode by default
+     write /sys/class/udc/"$udc"/device/../mode peripheral
+     echo "$udc" > $GADGET_DIR/g1/UDC

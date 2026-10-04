@@ -1,0 +1,37 @@
+# SPDX-FileCopyrightText: Johannes Meyer zum Alten Borgloh
+# SPDX-License-Identifier: Apache-2.0
+
+# Copyright and licensing for the files that cannot say it themselves. Files
+# whose own header names every holder and licence are not listed: the spec,
+# the override initrd-pdx246/recovery-init (Jolla's GPL-2.0-only file with
+# this port's change marked in it), the tool script and .gitignore.
+#
+# The initrd/ submodule (mer-hybris/hybris-initrd, GPL-2.0-only, Jolla) is not
+# part of this repository; see SUBMODULES.md.
+
+version = 1
+SPDX-PackageName = "droid-hal-img-boot-pdx246"
+SPDX-PackageSupplier = "Johannes Meyer zum Alten Borgloh"
+SPDX-PackageDownloadLocation = "NOASSERTION"
+
+# Written for this port, in formats that carry no header by convention.
+# .gitmodules is created by "git submodule add" (SUBMODULES.md) and cannot
+# carry a header.
+[[annotations]]
+path = ["NOTES.md", "README.md", "SUBMODULES.md", ".gitmodules"]
+SPDX-FileCopyrightText = "Johannes Meyer zum Alten Borgloh"
+SPDX-License-Identifier = "Apache-2.0"
+
+# The patch that produces initrd-pdx246/recovery-init. Its context lines are
+# hybris-initrd's recovery-init (holders and years as named in that file's own
+# header); the added lines are this port's and, as a change to a GPL-2.0-only
+# file, are GPL-2.0-only too.
+[[annotations]]
+path = "patches/initrd/*.patch"
+SPDX-FileCopyrightText = [
+    "2025 Jolla Mobile Ltd",
+    "2021 Open Mobile Platform LLC.",
+    "2013-2015 Jolla Ltd.",
+    "Johannes Meyer zum Alten Borgloh",
+]
+SPDX-License-Identifier = "GPL-2.0-only"
