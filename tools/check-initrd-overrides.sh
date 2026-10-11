@@ -1,6 +1,6 @@
 #!/bin/sh
 # SPDX-FileCopyrightText: Johannes Meyer zum Alten Borgloh
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: GPL-2.0-only
 #
 # The files in initrd-pdx246/ replace whole files of the hybris-initrd
 # submodule at build time (droid-hal-device-img-boot.inc copies them over

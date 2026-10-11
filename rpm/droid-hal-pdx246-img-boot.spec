@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: Johannes Meyer zum Alten Borgloh
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: GPL-2.0-only
 #
 # LVM boot image for the Sony Xperia 10 VI (pdx246): builds hybris-boot.img
 # (flashed to boot_a) and the debug image hybris-recovery.img (USB telnet

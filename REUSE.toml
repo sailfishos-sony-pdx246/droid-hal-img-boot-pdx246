@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: Johannes Meyer zum Alten Borgloh
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: GPL-2.0-only
 
 # Copyright and licensing for the files that cannot say it themselves. Files
 # whose own header names every holder and licence are not listed: the spec,
@@ -8,19 +8,29 @@
 #
 # The initrd/ submodule (mer-hybris/hybris-initrd, GPL-2.0-only, Jolla) is not
 # part of this repository; see SUBMODULES.md.
+#
+# Licences follow the code this builds on: the files written for this port
+# are GPL-2.0-only like hybris-initrd (its packages are tagged GPLv2), the
+# documentation (NOTES.md, README.md, SUBMODULES.md) is CC-BY-SA-4.0.
 
 version = 1
 SPDX-PackageName = "droid-hal-img-boot-pdx246"
 SPDX-PackageSupplier = "Johannes Meyer zum Alten Borgloh"
 SPDX-PackageDownloadLocation = "NOASSERTION"
 
-# Written for this port, in formats that carry no header by convention.
+# The documentation, written for this port, in a format that carries no
+# header by convention.
+[[annotations]]
+path = ["NOTES.md", "README.md", "SUBMODULES.md"]
+SPDX-FileCopyrightText = "Johannes Meyer zum Alten Borgloh"
+SPDX-License-Identifier = "CC-BY-SA-4.0"
+
 # .gitmodules is created by "git submodule add" (SUBMODULES.md) and cannot
 # carry a header.
 [[annotations]]
-path = ["NOTES.md", "README.md", "SUBMODULES.md", ".gitmodules"]
+path = [".gitmodules"]
 SPDX-FileCopyrightText = "Johannes Meyer zum Alten Borgloh"
-SPDX-License-Identifier = "Apache-2.0"
+SPDX-License-Identifier = "GPL-2.0-only"
 
 # The patch that produces initrd-pdx246/recovery-init. Its context lines are
 # hybris-initrd's recovery-init (holders and years as named in that file's own
