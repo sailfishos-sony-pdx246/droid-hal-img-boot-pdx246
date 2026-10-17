@@ -31,8 +31,10 @@ Never combine these images with LineageOS ones.
 
 - `rpm/droid-hal-pdx246-img-boot.spec`: device values for
   `initrd/droid-hal-device-img-boot.inc`.
-- `initrd-pdx246/`: files that replace hybris-initrd files at build time.
-  Each one is generated from `patches/initrd/`.
+- `initrd-pdx246/`: files that replace hybris-initrd files at build time
+  (`recovery-init`), and the patched `droid-hal-device-img-boot.inc` that the
+  spec includes (a new release for every build). Each one is generated from
+  `patches/initrd/`.
 - `tools/check-initrd-overrides.sh`: checks that the overrides still equal
   upstream plus the patches. Run it after any submodule bump.
 - `NOTES.md`: decisions with evidence, the contract with the other

@@ -1,0 +1,40 @@
+From: Johannes Meyer zum Alten Borgloh <code@jzab.de>
+Subject: [PATCH] [img-boot] Let the device spec set the release
+
+Release is always 1. On OBS that does not matter, because OBS replaces
+it with its own build counter, but a local rebuild of
+droid-hal-<device>-img-boot with the same kernel sublevel keeps the
+version-release of the installed package, so zypper does not see it as
+an update. A device spec that pins droid-hal's images to the build it
+packed then also keeps requiring the old droid-hal version-release,
+which blocks the droid-hal upgrade.
+
+Take the release from img_boot_release when the device spec defines it,
+for example as a build stamp like droid-hal's rel_date. Without it the
+release stays 1, so existing specs are unaffected.
+
+Applies to mer-hybris/hybris-initrd 7b972b6. droid-hal-img-boot-pdx246
+ships the result as the override initrd-pdx246/droid-hal-device-img-boot.inc;
+tools/check-initrd-overrides.sh checks that the two agree.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ droid-hal-device-img-boot.inc | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/droid-hal-device-img-boot.inc b/droid-hal-device-img-boot.inc
+index 1984489..26d035d 100644
+--- a/droid-hal-device-img-boot.inc
++++ b/droid-hal-device-img-boot.inc
+@@ -181,7 +181,10 @@ Version:    0.0.1
+ %else
+ Version:    %{localver}
+ %endif
+-Release:    1
++# The device spec can set the release, e.g. to a build stamp, so that a
++# local rebuild upgrades the installed package. OBS replaces the release
++# with its own build counter anyway.
++Release:    %{?img_boot_release}%{!?img_boot_release:1}
+ License:    GPLv2
+ Source0:    %{name}-%{version}.tar.bz2
+ 

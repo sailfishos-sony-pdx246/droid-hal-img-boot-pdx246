@@ -60,9 +60,6 @@ BuildRequires:  busybox-static >= 1.36.1+git9
 # other vendor_dlkm leaves Sailfish OS without Wi-Fi, audio and modem. Pin all
 # three to that build. Rebuild this package after every build_packages.sh -d,
 # with build_packages.sh -o -N --mw=droid-hal-img-boot-pdx246 (README.md).
-# TODO (NOTES.md D10): the .inc sets Release 1, so every rebuild with the same
-# kernel sublevel has the same version-release; that must change per build
-# before any update channel exists.
 %define pdx246_dhd_vr %(rpm -q --qf '[%%{version}-%%{release}]' droid-hal-%{device}-kernel 2>/dev/null | grep -v 'is not installed' || :)
 %if "%{pdx246_dhd_vr}" != ""
 Requires:       droid-hal-%{device}-vendor_boot = %{pdx246_dhd_vr}
@@ -70,4 +67,12 @@ Requires:       droid-hal-%{device}-kernel-dtbo = %{pdx246_dhd_vr}
 Requires:       droid-hal-%{device}-vendor_dlkm = %{pdx246_dhd_vr}
 %endif
 
-%include initrd/droid-hal-device-img-boot.inc
+# A new release for every build, a build stamp like droid-hal's rel_date
+# (NOTES.md D10): otherwise every rebuild with the same kernel sublevel would be
+# 5.10.269-1, zypper would not upgrade the installed package, and the installed
+# one would keep requiring the old droid-hal build above.
+%define img_boot_release %(date +'%%Y%%m%%d%%H%%M')
+
+# hybris-initrd's .inc with patches/initrd/0002 (the release above is used);
+# tools/check-initrd-overrides.sh checks that it equals upstream plus the patch.
+%include initrd-pdx246/droid-hal-device-img-boot.inc

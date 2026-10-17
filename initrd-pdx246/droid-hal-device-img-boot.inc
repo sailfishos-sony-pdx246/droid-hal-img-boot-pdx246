@@ -1,0 +1,530 @@
+# This file should be %%included into a device specific spec file
+# where macros are defined:
+#
+# Device information:
+# device:        device name used in droid-hal-* package names
+# mkbootimg_cmd: The device specific mkbootimg command. Last option must be
+#                --output with the output image name left blank, the generic
+#                part will add the image name behind mkbootimg_cmd.
+#
+#                NOTE! Use "--ramdisk %%{initrd} --kernel %%{kernel} --dt
+#                %%{devicetree}" to build with the standard binaries from
+#                droid-hal-device kernel package.
+#
+#                If initrd_separate_ramdisks is used the recovery ramdisk
+#                is available as %%{recovery_initrd}
+#
+# init_boot_mkbootimg_cmd: The device specific init_boot mkbootimg command.
+#                          Last option must be --output with the output
+#                          image name left blank, the generic part will add
+#                          the image name behind init_boot_mkbootimg_cmd.
+#
+# vendor_boot_mkbootimg_cmd: The device specific vendor_boot mkbootimg command.
+#                            Last option must be --vendor_boot with the output
+#                            image name left blank, the generic part will add
+#                            the image name behind vendor_boot_mkbootimg_cmd.
+#
+# avbtool_footer_cmd: The device specific command to add avb footer to boot
+#                     image. Last option must be --image with the image name
+#                     left blank, the generic part will add the image name
+#                     behind avbtool_footer_cmd.
+#
+# recovery_avbtool_footer_cmd: The device specific command to add avb footer to
+#                              recovery image. Last option must be --image
+#                              with the image name left blank, the generic part
+#                              will add the image name behind
+#                              recovery_avbtool_footer_cmd.
+#
+# init_boot_avbtool_footer_cmd: The device specific command to add avb footer to
+#                               init_boot image. Last option must be --image
+#                               with the image name left blank, the generic part
+#                               will add the image name behind
+#                               init_boot_avbtool_footer_cmd.
+#
+# vendor_boot_avbtool_footer_cmd: The device specific command to add avb footer
+#                                 to vendor_boot image. Last option must be
+#                                 --image with the image name left blank, the
+#                                 generic part will add the image name behind
+#                                 vendor_boot_avbtool_footer_cmd.
+#
+# avbtool_append_cmd: The device specific command to append vbmeta to boot
+#                     image. Last option must be --image with the image name
+#                     left blank, the generic part will add the image name
+#                     behind avbtool_append_cmd.
+#
+# recovery_avbtool_append_cmd: The device specific command to append vbmeta to
+#                              recovery image. Last option must be --image
+#                              with the image name left blank, the generic part
+#                              will add the image name behind
+#                              recovery_avbtool_append_cmd.
+#
+# init_boot_avbtool_append_cmd: The device specific command to append vbmeta to
+#                               init_boot image. Last option must be --image
+#                               with the image name left blank, the generic part
+#                               will add the image name behind
+#                               init_boot_avbtool_append_cmd.
+#
+# vendor_boot_avbtool_append_cmd: The device specific command to append vbmeta
+#                                 to vendor_boot image. Last option must be
+#                                 --image with the image name left blank, the
+#                                 generic part will add the image name behind
+#                                 vendor_boot_avbtool_append_cmd.
+#
+# custom_bootconfig: Custom bootconfig content instead using the existing
+#                    vendor-bootconfig.img. This is a multi-line macro with
+#                    lines ended with '\'
+#
+# root_part_label:    Sailfish OS partition label, single string
+# factory_part_label: Factory image partition label, single string
+# bcb_part_label:     Boot Control Block, i.e. "misc", partition label.
+#                     Define this to enable BCB clearing.
+# bcb_part_path:      Deprecated, prefer bcb_part_label.
+#                     Absolute device path for the BCB partition.
+#
+# battery_capacity_file:      Path to read current battery charge from.
+# battery_capacity_threshold: Battery threshold for factory reset [0, 100].
+#                             Default 0 (no threshold).
+#
+# initrd_combined: Build combined normal/recovery bootimage.
+#                  Remember to override the sbin/select-init-mode script to
+#                  pick the correct init script based on what ever information
+#                  the bootloader provides.
+#
+# initrd_separate_ramdisks: Build separate ramdisks for normal and recovery
+#                           which are both included in vendor_boot image as
+#                           separate ramdisk fragments.
+#
+# initrd_use_lz4:             Use lz4 compression for initrd instead of gzip
+#
+# initrd_env_vars:            Pass the list of variables to /etc/sysconfig/init
+#                             Define as follows (deduplicate percentage sign):
+#                             %%define initrd_env_vars \
+#                             FOO=bar\
+#                             XYZ=123\
+#                             %%{nil}
+#
+# Adding device specific files to initrd folder:
+#
+# Create a folder named initrd-%%{device} and copy the overriding files there.
+# During build time, the files from the device specific folder will be copied
+# over the standard initrd folder.
+#
+# Adding tools to basic set of initrd / recovery:
+#
+# Add file list of needed tool paths to initrd-%%{device}/tools.files or
+# initrd-%%{device}/recovery.files files. It will be amended to the list of
+# installed files when mksfosinitrd.sh is run. Remember to have the actual
+# tool binaries to be installed in either sb2 target or in initrd-%%{device}/
+# For files in sb2 / OBS target you naturally need to add BuildRequires in the
+# device specific spec file to get the tools included.
+#
+# E.g. Adding cryptsetup: echo "/sbin/cryptsetup" > initrd-%%{device}/tools.files
+# And then add "BuildRequires: cryptsetup" to spec file.
+#
+# Or for local tool: echo "sbin/mytool" > initrd-%%{device}/recovery.files
+# And then copy mytool to initrd-%%{device}/sbin/mytool. Please note the missing
+# leading / in local tools, as they will be copied with relative path.
+#
+
+# By default built with tools supplied by the device sources
+# can be change once android-tools has been updated
+%bcond_without dhd_tools
+
+%define _local_build_dir buildtmp
+%define _local_initrd_dir %{_local_build_dir}/initrd
+%if 0%{?initrd_use_lz4:1}
+%define initrd %{_local_initrd_dir}/rootfs.cpio.lz4
+%if 0%{?initrd_separate_ramdisks:1}
+%define recovery_initrd %{_local_initrd_dir}/recovery_rootfs.cpio.lz4
+%endif
+%define compression_format lz4
+%else
+%define initrd %{_local_initrd_dir}/rootfs.cpio.gz
+%if 0%{?initrd_separate_ramdisks:1}
+%define recovery_initrd %{_local_initrd_dir}/recovery_rootfs.cpio.gz
+%endif
+%define compression_format gz
+%endif
+
+
+%if 0%{?native_build:1}
+%define kernelversion %(rpm -q --qf '[%%{version}-%%{release}]' kernel-adaptation-%{device})
+%define kernelmodulesversion %(rpm -q --qf '[%%{version}-%%{release}]' kernel-adaptation-%{device})
+%define kernelver %(rpm -ql kernel-adaptation-%{device} | sort | grep /lib/modules/ | head -1 | cut -d '/' -f 4)
+%else
+%define kernelversion %(rpm -q --qf '[%%{version}-%%{release}]' droid-hal-%{device}-kernel)
+%define kernelmodulesversion %(rpm -q --qf '[%%{version}-%%{release}]' droid-hal-%{device}-kernel-modules)
+%define kernelver %(rpm -ql droid-hal-%{device}-kernel-modules | sort | grep /lib/modules/ | head -1 | rev | cut -d '/' -f 1 | rev)
+%endif
+%define localver %(echo "%{kernelver}" | cut -d '-' -f1 | cut -d '+' -f1)
+%define kernel /boot/kernel-%{kernelver}
+%if "%{?vendor_boot_mkbootimg_cmd}" != ""
+%define dtb /boot/dtb.img
+%define bootconfig %{_local_build_dir}/bootconfig
+# The init_boot partition seems to be too small for out initrd
+# at least on some devices so add combined initrd to vendor_boot
+%if "%{?init_boot_mkbootimg_cmd}" != ""
+%define initrd_combined 1
+%endif
+%endif
+%define devicetree /boot/dt.img
+
+# Ensure 'rpmspec' can be used to query BuildRequires
+%if "%{localver}" == ""
+%define localver THIS_SHOULD_NOT_APPEAR_ANYWHERE_IN_THE_BUILD_ARTIFACTS
+%endif
+
+Name:       droid-hal-%{device}-img-boot
+Summary:    Kernel boot image for %{device}
+%if 0%{?_obs_build_project:1}
+Version:    0.0.1
+%else
+Version:    %{localver}
+%endif
+# The device spec can set the release, e.g. to a build stamp, so that a
+# local rebuild upgrades the installed package. OBS replaces the release
+# with its own build counter anyway.
+Release:    %{?img_boot_release}%{!?img_boot_release:1}
+License:    GPLv2
+Source0:    %{name}-%{version}.tar.bz2
+
+# Normal kernel build requirements
+BuildRequires:  droid-hal-%{device}-kernel
+BuildRequires:  droid-hal-%{device}-kernel-modules
+%if "%{?vendor_boot_mkbootimg_cmd}" != ""
+BuildRequires:  droid-hal-%{device}-kernel-modules-vendor_boot
+%endif
+%if 0%{!?disable_tools:1}
+# if we need our own mkbooting pull it or use the shared mkbootimg
+%if %{with dhd_tools}
+BuildRequires:  droid-hal-%{device}-tools
+%else
+BuildRequires:  android-tools-mkbootimg
+%endif
+%endif
+BuildRequires:  initrd-helpers >= 0.1.16
+BuildRequires:  initrd-logos
+BuildRequires:  cpio
+BuildRequires:  lvm2
+%if 0%{?initrd_use_lz4:1}
+BuildRequires:  hw-ramdisk >= 1.1.6
+BuildRequires:  lz4
+%else
+BuildRequires:  hw-ramdisk
+%endif
+BuildRequires:  e2fsprogs
+BuildRequires:  yamui >= 1.3.0
+BuildRequires:  openssh-clients
+BuildRequires:  openssh-server >= 10.0
+
+# tools
+Buildrequires:  coreutils
+BuildRequires:  cryptsetup
+BuildRequires:  sed
+
+%if 0%{?_obs_build_project:1}
+%ifarch %{ix86}
+# /boot
+BuildRequires: sudo-for-abuild
+%endif
+%endif
+
+# Run time requires for flashing the bootimg
+Requires:       droid-config-flashing
+
+Provides:   kernel = %{version}
+Provides:   droid-hal-img-boot
+Provides:   droid-hal-kernel-modules
+
+# The expectation is that dhd based modules are 0.0.* versioned, while
+# this kernel package is 3.10.* or later versioned. Below will ensure
+# any old dhd based module package gets obsoleted.
+Provides:   droid-hal-%{device}-kernel-modules = %{version}
+Obsoletes:  droid-hal-%{device}-kernel-modules < %{version}
+
+%if 0%{?initrd_combined:1}
+Provides:  droid-hal-img-recovery
+# Obsolete possible previous recovery image if this is a combined image
+Provides:  droid-hal-%{device}-img-recovery = %{version}
+Obsoletes: droid-hal-%{device}-img-recovery < %{version}
+%endif
+
+Requires(post): kmod
+
+BuildRequires: oneshot
+Requires: oneshot
+%{_oneshot_requires_post}
+
+%description
+%{summary}
+
+%package -n droid-hal-%{device}-img-recovery
+
+Summary:    Recovery boot image for Sailfish OS devices
+Provides:   droid-hal-img-recovery
+
+# Run time requires for flashing the recovery image
+Requires:       droid-config-flashing
+
+%description -n droid-hal-%{device}-img-recovery
+%{summary}
+
+%if "%{?init_boot_mkbootimg_cmd}" != ""
+%package -n droid-hal-%{device}-init_boot
+
+Summary:    init_boot image for Sailfish OS devices
+
+# Run time requires for flashing the recovery image
+Requires:       droid-config-flashing
+
+%description -n droid-hal-%{device}-init_boot
+%{summary}
+%endif
+
+%if "%{?vendor_boot_mkbootimg_cmd}" != ""
+%package -n droid-hal-%{device}-vendor_boot
+
+Summary:    vendor_boot image for Sailfish OS devices
+
+# Run time requires for flashing the recovery image
+Requires:       droid-config-flashing
+
+%description -n droid-hal-%{device}-vendor_boot
+%{summary}
+%endif
+
+%prep
+%setup -q -n %{name}-%{version}
+
+%build
+%if "%{kernelversion}" != "%{kernelmodulesversion}"
+echo "Kernel version and module version do not match (%{kernelversion} != %{kernelmodulesversion}). Build doomed!"
+exit -1
+%endif
+
+# HACK for mb2 not using separate build dir, so let's create our own...
+rm -rf %{_local_build_dir}
+mkdir -p %{_local_initrd_dir}
+cp -af initrd/* %{_local_initrd_dir}
+
+# Copy over any device specific override initrd files
+# NOTE: We do this in build section to allow local mb2 build to work.
+if test -d initrd-%{device}; then
+    cp -af initrd-%{device}/* %{_local_initrd_dir}/
+fi
+
+# modify partition labels
+%if 0%{!?root_part_label:1}
+%define root_part_label sailfish
+%endif
+
+%if 0%{!?factory_part_label:1}
+%define factory_part_label fimage
+%endif
+
+%if 0%{!?external_media_devices:1}
+%define external_media_devices /dev/mmcblk[1-9]*p[1-9]*
+%endif
+
+%if 0%{!?lvm_root_size:1}
+%define lvm_root_size 2500
+%endif
+INIT_FILE=%{_local_initrd_dir}/etc/sysconfig/init
+sed --in-place 's|@LVM_ROOT_PART_SIZE@|%{lvm_root_size}|' $INIT_FILE
+
+sed --in-place 's|@PHYSDEV_PART_LABEL@|%{root_part_label}|' %{_local_initrd_dir}/etc/sysconfig/partitions
+sed --in-place 's|@FIMAGE_PART_LABEL@|%{factory_part_label}|' %{_local_initrd_dir}/etc/sysconfig/partitions
+sed --in-place 's|@EXTERNAL_MEDIA_DEVICES@|%{external_media_devices}|' %{_local_initrd_dir}/etc/sysconfig/partitions
+sed --in-place 's|@BCB_PART_LABEL@|%{?bcb_part_label}|' %{_local_initrd_dir}/etc/sysconfig/partitions
+sed --in-place 's|@BCB_PART_PATH@|%{?bcb_part_path}|' %{_local_initrd_dir}/etc/sysconfig/partitions
+
+# modify display settings
+%if 0%{!?display_brightness_path:1}
+%define display_brightness_path /sys/class/backlight/intel_backlight/brightness
+%endif
+
+%if 0%{!?display_brightness:1}
+%define display_brightness 0
+%endif
+
+sed --in-place 's|@DISPLAY_BRIGHTNESS_PATH@|%{display_brightness_path}|' %{_local_initrd_dir}/etc/sysconfig/display
+sed --in-place 's|@DISPLAY_BRIGHTNESS@|%{display_brightness}|' %{_local_initrd_dir}/etc/sysconfig/display
+
+%if 0%{!?battery_capacity_file:1}
+%define battery_capacity_file "/sys/class/power_supply/*_battery/capacity"
+%endif
+
+%if 0%{!?battery_capacity_threshold:1}
+%define battery_capacity_threshold 0
+%endif
+
+sed --in-place 's|@BATTERY_CAPACITY_FILE@|%{battery_capacity_file}|' %{_local_initrd_dir}/etc/sysconfig/recovery
+sed --in-place 's|@BATTERY_CAPACITY_THRESHOLD@|%{battery_capacity_threshold}|' %{_local_initrd_dir}/etc/sysconfig/recovery
+
+sed --in-place 's|@LIB_DIR@|%{_libdir}|' %{_local_initrd_dir}/usr/bin/recovery-menu-devicelock
+
+# Add device-specific environment variables from droid-hal-$DEVICE-img-boot.spec to /etc/sysconfig/init
+%if 0%{?initrd_env_vars:1}
+cat <<EOF >> $INIT_FILE
+%{?initrd_env_vars}
+EOF
+%endif
+
+# Create a hybris-boot.img image from the zImage
+%if 0%{?_obs_build_project:1}
+%ifarch %{ix86}
+sudo chmod 755 /boot
+%endif
+%endif
+
+%if 0%{?initrd_combined:1}
+pushd %{_local_initrd_dir}
+%if "%{?init_boot_mkbootimg_cmd}" != ""
+./mksfosinitrd.sh %{_lib} %{compression_format} empty
+%else
+./mksfosinitrd.sh %{_lib} %{compression_format} combined
+%endif
+popd
+%{mkbootimg_cmd} hybris-boot.img
+%if "%{?avbtool_footer_cmd}" != ""
+%{avbtool_footer_cmd} hybris-boot.img
+%endif
+%if "%{?avbtool_append_cmd}" != ""
+%{avbtool_append_cmd} hybris-boot.img
+%endif
+%if "%{?init_boot_mkbootimg_cmd}" != ""
+%{init_boot_mkbootimg_cmd} hybris-init_boot.img
+%if "%{?init_boot_avbtool_footer_cmd}" != ""
+%{init_boot_avbtool_footer_cmd} hybris-init_boot.img
+%endif
+%if "%{?init_boot_avbtool_append_cmd}" != ""
+%{init_boot_avbtool_append_cmd} hybris-init_boot.img
+%endif
+%endif
+
+%else
+pushd %{_local_initrd_dir}
+./mksfosinitrd.sh %{_lib} %{compression_format}
+popd
+%{mkbootimg_cmd} hybris-boot.img
+%if "%{?avbtool_footer_cmd}" != ""
+%{avbtool_footer_cmd} hybris-boot.img
+%endif
+%if "%{?avbtool_append_cmd}" != ""
+%{avbtool_append_cmd} hybris-boot.img
+%endif
+
+pushd %{_local_initrd_dir}
+./mksfosinitrd.sh %{_lib} %{compression_format} recovery
+popd
+%{mkbootimg_cmd} hybris-recovery.img
+%if "%{?recovery_avbtool_footer_cmd}" != ""
+%{recovery_avbtool_footer_cmd} hybris-recovery.img
+%endif
+%if "%{?recovery_avbtool_append_cmd}" != ""
+%{recovery_avbtool_append_cmd} hybris-recovery.img
+%endif
+%endif
+
+%if "%{?vendor_boot_mkbootimg_cmd}" != ""
+%if 0%{?custom_bootconfig:1}
+echo "%{custom_bootconfig}" > %{_local_build_dir}/bootconfig
+%else
+cp /boot/vendor-bootconfig.img %{_local_build_dir}/bootconfig
+%endif
+if [ -d /lib/vendor_boot_modules ]; then
+    mkdir -p %{_local_initrd_dir}/lib/
+    cp -af /lib/vendor_boot_modules %{_local_initrd_dir}/lib/
+fi
+pushd %{_local_initrd_dir}
+%if "%{?init_boot_mkbootimg_cmd}" != ""
+%if 0%{?initrd_separate_ramdisks:1}
+./mksfosinitrd.sh %{_lib} %{compression_format} vendor_boot_separate_ramdisks
+%else
+./mksfosinitrd.sh %{_lib} %{compression_format} vendor_boot_combined
+%endif
+%else
+./mksfosinitrd.sh %{_lib} %{compression_format} vendor_boot
+%endif
+popd
+%{vendor_boot_mkbootimg_cmd} vendor_boot.img
+%if "%{?vendor_boot_avbtool_footer_cmd}" != ""
+%{vendor_boot_avbtool_footer_cmd} vendor_boot.img
+%endif
+%if "%{?vendor_boot_avbtool_append_cmd}" != ""
+%{vendor_boot_avbtool_append_cmd} vendor_boot.img
+%endif
+%endif
+
+rm -rf %{_local_build_dir}
+
+%install
+rm -rf %{buildroot}
+
+# /boot
+install -D -m 644 hybris-boot.img %{buildroot}/boot/hybris-boot.img
+%if !0%{?initrd_combined:1}
+install -D -m 644 hybris-recovery.img %{buildroot}/boot/hybris-recovery.img
+%endif
+%if "%{?init_boot_mkbootimg_cmd}" != ""
+install -D -m 644 hybris-init_boot.img %{buildroot}/boot/hybris-init_boot.img
+%endif
+%if "%{?vendor_boot_mkbootimg_cmd}" != ""
+install -D -m 644 vendor_boot.img %{buildroot}/boot/vendor_boot.img
+%endif
+
+# /lib/modules
+mkdir -p %{buildroot}/lib/modules
+cp -a /lib/modules/%{kernelver} %{buildroot}/lib/modules
+
+touch %{buildroot}/lib/modules/%{kernelver}/{modules.order,modules.builtin}
+
+%files
+/boot/hybris-boot.img
+%defattr(644,root,root,-)
+/lib/modules/%{kernelver}
+
+%if "%{?init_boot_mkbootimg_cmd}" == ""
+%if !0%{?initrd_combined:1}
+%files -n droid-hal-%{device}-img-recovery
+%if "%{?init_boot_mkbootimg_cmd}" != ""
+/boot/hybris-init_recovery.img
+%else
+/boot/hybris-recovery.img
+
+%post -n droid-hal-%{device}-img-recovery
+if [ $1 -ne 1 ] ; then
+  add-preinit-oneshot /var/lib/platform-updates/flash-recoveryimg.sh || :
+fi
+%endif
+%endif
+%endif
+
+%if "%{?init_boot_mkbootimg_cmd}" != ""
+%files -n droid-hal-%{device}-init_boot
+/boot/hybris-init_boot.img
+
+%post -n droid-hal-%{device}-init_boot
+if [ $1 -ne 1 ] ; then
+  add-preinit-oneshot /var/lib/platform-updates/flash-init_boot.sh || :
+fi
+%endif
+
+%if "%{?vendor_boot_mkbootimg_cmd}" != ""
+%files -n droid-hal-%{device}-vendor_boot
+/boot/vendor_boot.img
+
+%post -n droid-hal-%{device}-vendor_boot
+if [ $1 -ne 1 ] ; then
+  add-preinit-oneshot /var/lib/platform-updates/flash-vendor_boot.sh || :
+fi
+%endif
+
+%post
+# When doing install that is done during the image creation thus we don't add
+# the oneshot on install but on all other cases.
+if [ $1 -ne 1 ] ; then
+  add-preinit-oneshot /var/lib/platform-updates/flash-bootimg.sh || :
+fi
+
+/sbin/depmod %{kernelver} || :

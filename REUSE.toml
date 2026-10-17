@@ -37,11 +37,24 @@ SPDX-License-Identifier = "GPL-2.0-only"
 # header); the added lines are this port's and, as a change to a GPL-2.0-only
 # file, are GPL-2.0-only too.
 [[annotations]]
-path = "patches/initrd/*.patch"
+path = "patches/initrd/0001-*.patch"
 SPDX-FileCopyrightText = [
     "2025 Jolla Mobile Ltd",
     "2021 Open Mobile Platform LLC.",
     "2013-2015 Jolla Ltd.",
+    "Johannes Meyer zum Alten Borgloh",
+]
+SPDX-License-Identifier = "GPL-2.0-only"
+
+# hybris-initrd's droid-hal-device-img-boot.inc with patches/initrd/0002 (the
+# spec includes this copy), and that patch. The .inc carries no header; its
+# history in mer-hybris/hybris-initrd (2015-2026) is Jolla's work with a few
+# outside contributors. The changed lines are this port's, GPL-2.0-only like
+# the file.
+[[annotations]]
+path = ["initrd-pdx246/droid-hal-device-img-boot.inc", "patches/initrd/0002-*.patch"]
+SPDX-FileCopyrightText = [
+    "2015-2026 the hybris-initrd authors (Jolla and contributors, see the history of mer-hybris/hybris-initrd)",
     "Johannes Meyer zum Alten Borgloh",
 ]
 SPDX-License-Identifier = "GPL-2.0-only"

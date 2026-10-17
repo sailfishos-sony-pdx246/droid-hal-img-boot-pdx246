@@ -358,7 +358,9 @@ flash-dtbo.sh):
   sparse, then `cmp` the first image-size bytes of the partition against it.
   On a mismatch it fails and stays registered.
 
-Status: drafted, not tested on the phone (droid-config R11). Until it is
+Status: drafted; the read-only parts checked on the phone 2026-10-17 (droid-config
+D21: release extraction fixed for BusyBox, CPU check, slot check, read-back
+comparison), the upgrades themselves not yet run (droid-config R11). Until it is
 tested, do kernel updates with the D11 flash procedure. Q1 asks the user to
 confirm P.
 
@@ -434,8 +436,8 @@ Requires: droid-hal-pdx246-vendor_dlkm = <same>
 - The official template does not do this. The 10 IV porter was only told to
   put `-vendor_boot` and `-kernel-dtbo` into the patterns (IRCLOGS.md:804-811).
   This is Q3.
-- Limit: img-boot's own version-release does not change between rebuilds
-  with the same kernel sublevel (D10, TODO V1).
+- img-boot's own release changes with every build since 2026-10-17 (D10, V1),
+  so a rebuild that pins a newer droid-hal build is an upgrade.
 
 ### D10. Package version
 
@@ -446,7 +448,17 @@ Requires: droid-hal-pdx246-vendor_dlkm = <same>
   The D1 command passes `-N`, which sets `--no-fix-version`, so the version is
   the kernel version even if the repo is tagged later. The Obsoletes of
   droid-hal-pdx246-kernel-modules (0.0.6) then works.
-- **TODO V1 (not implemented):** Release is 1 for every rebuild with the same
+- **V1, implemented 2026-10-17:** the spec defines `img_boot_release` as a
+  build stamp, `%(date +'%%Y%%m%%d%%H%%M')` like dhd's `rel_date`, and
+  includes `initrd-pdx246/droid-hal-device-img-boot.inc`, which is hybris-initrd's
+  .inc plus `patches/initrd/0002` (`Release: %{?img_boot_release}%{!?img_boot_release:1}`;
+  tools/check-initrd-overrides.sh checks it, and the patch is an upstream
+  candidate). Every build now upgrades the installed package, including
+  the 5.10.269-1 builds on phones so far (rpm compares 2026... > 1); OBS
+  replaces the release with its own counter anyway. The tag route below was
+  not taken: it would change Version and needs the Obsoletes rechecked. What
+  follows is the original analysis.
+- **TODO V1 (as found):** Release is 1 for every rebuild with the same
   kernel sublevel. A rebuild with a new kernel commit, or one that pins a
   newer droid-hal build, is still 5.10.269-1. On the phone, zypper would not
   see it as an update, and the installed img-boot would keep requiring the

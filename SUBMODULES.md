@@ -34,8 +34,10 @@ plus five commits (`git log ecb295c..7b972b6` in the reference checkout):
   used here: vbmeta is flashed with verification disabled.
 - `55b4a23` adds `bcb_part_label`. It is not used here (NOTES.md, D7).
 
-`recovery-init`, the one file this repo overrides, is byte-identical at both
-commits, so the override and its patch fit either pin.
+This repo overrides two files. `recovery-init` is byte-identical at both
+commits, so that override and its patch fit either pin.
+`droid-hal-device-img-boot.inc` is not (7b972b6 adds 81 lines), so its override
+and patch 0002 fit 7b972b6 only.
 
 The hybris-initrd maintainer told the 10 IV porter to use the latest submodule
 (`<sfos>/pdx225/sailfish-on-murray/IRCLOGS.md:830`, "you can use latest
