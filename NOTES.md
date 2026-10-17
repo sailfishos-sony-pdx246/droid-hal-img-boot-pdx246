@@ -699,7 +699,8 @@ Preconditions:
 
 ## Open questions for the user
 
-- **Q1 vendor_dlkm on kernel updates.** Option P is drafted across the repos
+- **Q1 answered 2026-10-17: P** (the user: "P is fine"). Tests: droid-config R11.
+- **Q1 vendor_dlkm on kernel updates (as asked).** Option P is drafted across the repos
   (D8): droid-hal-pdx246-vendor_dlkm's %post and the boot set register
   `flash-vendor_dlkm.sh`, which rewrites vendor_dlkm_a in preinit at the first
   boot of the new kernel. Confirm P, or choose:
