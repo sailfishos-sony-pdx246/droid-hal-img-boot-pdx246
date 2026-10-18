@@ -317,52 +317,45 @@ All four images are one matched set from one Sailfish OS build.
 
 | Image | Built by | Package | First install (D11) | When the package is upgraded on the phone |
 |---|---|---|---|---|
-| hybris-boot.img | this repo | droid-hal-pdx246-img-boot | `boot_a`, from the bootloader | the .inc's %post registers the oneshot `/var/lib/platform-updates/flash-bootimg.sh` (:520-525); it writes the boot set (below) |
-| hybris-recovery.img | this repo | droid-hal-pdx246-img-recovery | not flashed; by hand to boot_a for debugging | **none**: droid-config ships no `flash-recoveryimg.sh` (the .inc's %post only tries to register it, :492-495, and add-preinit-oneshot refuses a missing job). recovery_a stays the LineageOS ramdisk-only recovery, because the bootloader rejects a recovery image with a kernel (findings.md boot-layout FACTS; PORTING-NOTES:3761-3763) |
-| vendor_boot.img | Android build (`vendorbootimage`, part of hybris-hal) | droid-hal-pdx246-vendor_boot (dhd `enable_vendor_boot_update 1`) | `vendor_boot_a`, from the bootloader | dhd's %post registers `flash-vendor_boot.sh`; it writes the boot set |
-| dtbo.img | Android build | droid-hal-pdx246-kernel-dtbo (always built by dhd; `enable_dtbo_update 1` adds the oneshot) | `dtbo_a`, from the bootloader | `flash-dtbo.sh`; it writes the boot set |
-| vendor_dlkm.img, vendor_dlkm.release | Android build (`vendor_dlkmimage`); the release file names the kernel release of that build | droid-hal-pdx246-vendor_dlkm | `vendor_dlkm_a` (logical, in super), from fastbootd | the package's %post registers `flash-vendor_dlkm.sh` |
+| hybris-boot.img | this repo | droid-hal-pdx246-img-boot | `boot_a`, from the bootloader | the .inc's %post registers the oneshot `/var/lib/platform-updates/flash-bootimg.sh` (:520-525); it writes the set (below) |
+| hybris-recovery.img | this repo | droid-hal-pdx246-img-recovery | not flashed; by hand to boot_a for debugging | **none**: the .inc's %post registers `flash-recoveryimg.sh` (:492-495), which droid-config ships as a no-op that only logs (since 2026-10-17; add-preinit-oneshot refuses a missing job). recovery_a stays the LineageOS ramdisk-only recovery, because the bootloader rejects a recovery image with a kernel (findings.md boot-layout FACTS; PORTING-NOTES:3761-3763) |
+| vendor_boot.img | Android build (`vendorbootimage`, part of hybris-hal) | droid-hal-pdx246-vendor_boot (dhd `enable_vendor_boot_update 1`) | `vendor_boot_a`, from the bootloader | dhd's %post registers `flash-vendor_boot.sh`; it writes the set |
+| dtbo.img | Android build | droid-hal-pdx246-kernel-dtbo (always built by dhd; `enable_dtbo_update 1` adds the oneshot) | `dtbo_a`, from the bootloader | `flash-dtbo.sh`; it writes the set |
+| vendor_dlkm.img, vendor_dlkm.release | Android build (`vendor_dlkmimage`); the release file names the kernel release of that build | droid-hal-pdx246-vendor_dlkm | `vendor_dlkm_a` (logical, in super), from fastbootd | the package's %post registers `flash-vendor_dlkm.sh`; it writes the set |
 
-**The boot set** (droid-config-pdx246, `pdx246-kernel-set.sh`, function
-`ks_flash_boot_set`, called by flash-bootimg.sh, flash-vendor_boot.sh and
-flash-dtbo.sh):
-- writes boot_a, vendor_boot_a and dtbo_a together. Whichever of the three
-  oneshots runs first writes all three; the others find them up to date.
+**The set** (droid-config-pdx246, `pdx246-kernel-set.sh`, function
+`ks_flash_set`, called by all four scripts; single pass since 2026-10-18,
+droid-config D21):
+- Sailfish OS's `/sbin/preinit` runs the registered jobs in `find` order before
+  anything else of the boot, removes a job that exits 0, turns one that exits
+  non-zero into `<name>.failed` (never retried) and then reboots. So the whole
+  set is written in that one pass, and nothing of that boot mounts
+  `/vendor_dlkm` or loads its modules.
 - writes nothing unless the kernel release in `/boot/hybris-boot.img` equals
-  `/boot/vendor_dlkm.release`, i.e. hybris-boot.img and the droid-hal images
-  belong to one build. Otherwise it exits non-zero and stays registered.
-- checks every write with `ks_part_matches` (the partition starts with
-  exactly the image's bytes).
-- when the kernel release changes, it also registers flash-vendor_dlkm.sh,
-  and flashes nothing if it cannot.
-- when it rewrites vendor_boot_a, it writes
-  `/var/lib/platform-updates/.pdx246-set-written` with
-  `/proc/sys/kernel/random/boot_id`.
-
-**flash-vendor_dlkm.sh** (droid-config-pdx246):
-- writes vendor_dlkm_a in preinit, before `/vendor_dlkm` is mounted, and only
-  once the running kernel is the one the modules were built for
-  (`uname -r` = `/boot/vendor_dlkm.release`): the first boot of a new kernel.
-- exits 1 and stays registered while `.pdx246-set-written` holds the current
-  boot_id. In the boot that rewrote vendor_boot_a, the initrd had already
-  loaded the old first-stage modules, so the new second-stage modules wait
-  one more boot. This also covers a rebuild that changes only the modules and
-  keeps the kernel release.
-- fails early if `CPUCHECK_STRING` is found neither in the DT model nor in
-  `/proc/cpuinfo` (flash-partition would otherwise exit 0 without writing).
+  `/boot/vendor_dlkm.release` (hybris-boot.img and the droid-hal images belong
+  to one build), all four images are installed, the phone runs from slot a,
+  `CPUCHECK_STRING` is in the DT model or `/proc/cpuinfo` (flash-partition
+  would otherwise exit 0 without writing), and the unsparsed vendor_dlkm image
+  fits vendor_dlkm_a.
 - maps vendor_dlkm_a read-write under a private dm name from the super
   metadata (parse-android-dynparts, slot a). It never writes the metadata, so
-  the partition cannot grow; an image larger than vendor_dlkm_a has to be
-  flashed from fastbootd.
-- verifies the written partition: unsparse the image with simg2img if it is
-  sparse, then `cmp` the first image-size bytes of the partition against it.
-  On a mismatch it fails and stays registered.
+  the partition cannot grow; the device tree fixes vendor_dlkm at 96 MiB so
+  that it does not have to.
+- writes every partition that differs from its image, in the order
+  vendor_dlkm_a, vendor_boot_a, dtbo_a, boot_a (a sparse vendor_dlkm image is
+  unsparsed with simg2img first), and verifies each with `ks_part_matches`
+  (the partition starts with exactly the image's bytes, read after
+  `blockdev --flushbufs`). The first failure stops the pass. The first job
+  writes, the others find the set up to date.
+- logs to the kernel log and `/var/log/pdx246-platform-updates.log` (the
+  pass's kernel log is lost in preinit's reboot).
 
-Status: drafted; the read-only parts checked on the phone 2026-10-17 (droid-config
-D21: release extraction fixed for BusyBox, CPU check, slot check, read-back
-comparison), the upgrades themselves not yet run (droid-config R11). Until it is
-tested, do kernel updates with the D11 flash procedure. Q1 asks the user to
-confirm P.
+Status: tested on the phone 2026-10-18 (droid-config R11): ed8ecc8 -> a test
+kernel -> ed8ecc8, `rpm -U` and one `systemctl reboot` each; the set was
+written and verified in about 3 s and preinit rebooted into it. The user
+confirmed P (Q1). The first version (2026-10-16: boot set first,
+vendor_dlkm_a one boot later behind a boot ID guard) was replaced before it
+wrote anything.
 
 Why the Android-built vendor_boot, not one built here:
 - The alternative is `vendor_boot_mkbootimg_cmd` with droid-hal's
@@ -699,7 +692,8 @@ Preconditions:
 
 ## Open questions for the user
 
-- **Q1 answered 2026-10-17: P** (the user: "P is fine"). Tests: droid-config R11.
+- **Q1 answered 2026-10-17: P** (the user: "P is fine"). Tested 2026-10-18 (droid-config
+  R11, single-pass design).
 - **Q1 vendor_dlkm on kernel updates (as asked).** Option P is drafted across the repos
   (D8): droid-hal-pdx246-vendor_dlkm's %post and the boot set register
   `flash-vendor_dlkm.sh`, which rewrites vendor_dlkm_a in preinit at the first
@@ -714,8 +708,8 @@ Preconditions:
     mounts or writes vendor_dlkm_a. Nagara's flash-config flashes boot,
     dtbo, vendor_boot and userdata only.
 
-  P's remaining risks: it is untested on the phone; it writes inside super
-  through its own dm mapping (only within vendor_dlkm_a's extents, metadata
+  P's remaining risks: it was untested on the phone (tested 2026-10-18,
+  droid-config R11); it writes inside super through its own dm mapping (only within vendor_dlkm_a's extents, metadata
   untouched); an image that outgrew the partition still needs fastbootd.
 - **Q2** Confirm the hybris-initrd pin at upstream head 7b972b6 (used now;
   normal boot loads only the 86 first-stage modules) rather than the
