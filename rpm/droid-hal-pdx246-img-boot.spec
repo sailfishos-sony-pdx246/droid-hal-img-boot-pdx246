@@ -5,8 +5,7 @@
 # (flashed to boot_a) and the debug image hybris-recovery.img (USB telnet
 # shell; flashed to boot_a by hand, never to recovery_a). The recipe is
 # initrd/droid-hal-device-img-boot.inc from mer-hybris/hybris-initrd
-# (GPL-2.0-only), which also documents every macro set here. NOTES.md gives the
-# evidence for each value.
+# (GPL-2.0-only), which also documents every macro set here.
 #
 # This package does NOT build vendor_boot.img: droid-hal-pdx246 ships the
 # Android-built one (enable_vendor_boot_update), and with it the dtb, the full
@@ -67,8 +66,8 @@ Requires:       droid-hal-%{device}-kernel-dtbo = %{pdx246_dhd_vr}
 Requires:       droid-hal-%{device}-vendor_dlkm = %{pdx246_dhd_vr}
 %endif
 
-# A new release for every build, a build stamp like droid-hal's rel_date
-# (NOTES.md D10): otherwise every rebuild with the same kernel sublevel would be
+# A new release for every build, a build stamp like droid-hal's rel_date:
+# otherwise every rebuild with the same kernel sublevel would be
 # 5.10.269-1, zypper would not upgrade the installed package, and the installed
 # one would keep requiring the old droid-hal build above.
 %define img_boot_release %(date +'%%Y%%m%%d%%H%%M')

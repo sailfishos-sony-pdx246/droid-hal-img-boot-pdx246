@@ -7,11 +7,11 @@
 # this port's change marked in it), the tool script and .gitignore.
 #
 # The initrd/ submodule (mer-hybris/hybris-initrd, GPL-2.0-only, Jolla) is not
-# part of this repository; see SUBMODULES.md.
+# part of this repository.
 #
 # Licences follow the code this builds on: the files written for this port
 # are GPL-2.0-only like hybris-initrd (its packages are tagged GPLv2), the
-# documentation (NOTES.md, README.md, SUBMODULES.md) is CC-BY-SA-4.0.
+# documentation (README.md) is CC-BY-SA-4.0.
 
 version = 1
 SPDX-PackageName = "droid-hal-img-boot-pdx246"
@@ -21,11 +21,11 @@ SPDX-PackageDownloadLocation = "NOASSERTION"
 # The documentation, written for this port, in a format that carries no
 # header by convention.
 [[annotations]]
-path = ["NOTES.md", "README.md", "SUBMODULES.md"]
+path = ["README.md"]
 SPDX-FileCopyrightText = "Johannes Meyer zum Alten Borgloh"
 SPDX-License-Identifier = "CC-BY-SA-4.0"
 
-# .gitmodules is created by "git submodule add" (SUBMODULES.md) and cannot
+# .gitmodules is created by "git submodule add" and cannot
 # carry a header.
 [[annotations]]
 path = [".gitmodules"]
